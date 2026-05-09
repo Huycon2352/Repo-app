@@ -42,7 +42,7 @@ jobs:
         with:
           repository: ${{ env.REPO_APP_OP }}
           token: ${{ secrets.GITOPS_PAT }}
-          path: k8s-gitops
+          path: Repo-app-ops
 
       # 5. Update image tag using Kustomize
       - name: Update image tag
