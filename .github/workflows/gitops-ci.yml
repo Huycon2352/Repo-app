@@ -51,7 +51,7 @@ jobs:
           ls
           pwd
 
-          cd gitops/Repo-app-ops/apps/$ENV
+          cd gitops/apps/$ENV
       
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
@@ -62,7 +62,7 @@ jobs:
       - name: Commit & push
         run: |
           ENV=${{ github.event.inputs.environment }}
-          cd Repo-app-ops
+          cd gitops
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
