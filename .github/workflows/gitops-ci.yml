@@ -48,7 +48,7 @@ jobs:
       - name: Update image tag
         run: |
           ENV=${{ github.event.inputs.environment }}
-          cd k8s-gitops/apps/$ENV
+          cd Repo-app-opsps/apps/$ENV
           git remote -v
 
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
