@@ -60,7 +60,7 @@ jobs:
       - name: Commit & push
         run: |
           ENV=${{ github.event.inputs.environment }}
-          cd k8s-gitops
+          cd Repo-app-ops
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
