@@ -49,6 +49,7 @@ jobs:
         run: |
           ENV=${{ github.event.inputs.environment }}
           git remote -v 
+          pwd
           ls
           tree
           cd Repo-app-ops/apps/$ENV
