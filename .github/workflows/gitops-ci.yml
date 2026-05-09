@@ -40,7 +40,7 @@ jobs:
       - name: Clone GitOps repo
         uses: actions/checkout@v4
         with:
-          repository: hgiang25/k8s-gitops
+          repository: ${{ env.REPO_APP_OP }}
           token: ${{ secrets.GITOPS_PAT }}
           path: k8s-gitops
 
