@@ -49,6 +49,8 @@ jobs:
         run: |
           ENV=${{ github.event.inputs.environment }}
           git remote -v 
+          ls
+          tree
           cd Repo-app-ops/apps/$ENV
       
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
