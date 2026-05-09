@@ -1,0 +1,56 @@
+name: CI + GitOps Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  build-and-update:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout app repo
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 4. Clone GitOps repo
+      - name: Clone GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO_APP_OP }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      # 5. Update image tag using Kustomize
+      - name: Update image tag
+        run: |
+          ENV=${{ github.event.inputs.environment }}
+          
+          cd gitops/apps/$ENV
+          
+          # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
+          kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
+          kustomize edit set image hgyang25/result-app=hgyang25/result-app:${GITHUB_SHA}
+          kustomize edit set image hgyang25/worker-app=hgyang25/worker-app:${GITHUB_SHA}
+
+      # 6. Commit & push
+      - name: Commit & push
+        run: |
+          ENV=${{ github.event.inputs.environment }}
+          cd gitops
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          # Thêm --staged vào dòng bên dưới
+          git diff --staged --quiet || git commit -m "update $ENV image to ${GITHUB_SHA}"
+          git push origin main
