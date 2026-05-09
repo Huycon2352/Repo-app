@@ -38,7 +38,7 @@ jobs:
           echo $ENV
           ls
           pwd
-          cd gitop
+          cd gitops
           pwd
           ls
 
