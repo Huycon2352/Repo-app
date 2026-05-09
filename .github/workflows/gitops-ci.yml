@@ -42,17 +42,15 @@ jobs:
         with:
           repository: ${{ env.REPO_APP_OP }}
           token: ${{ secrets.GITOPS_PAT }}
-          path: Repo-app-ops
+          path: gitops
 
       # 5. Update image tag using Kustomize
       - name: Update image tag
         run: |
           ENV=${{ github.event.inputs.environment }}
-          git remote -v 
           pwd
-          ls
-          tree
-          cd Repo-app-ops/apps/$ENV
+
+          cd gitops/Repo-app-ops/apps/$ENV
       
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
