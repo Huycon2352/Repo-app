@@ -38,8 +38,11 @@ jobs:
           echo $ENV
           ls
           pwd
+          cd gitop
+          pwd
+          ls
 
-          cd gitops/apps/$ENV
+          #cd gitops/apps/$ENV
           
       
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
