@@ -48,6 +48,7 @@ jobs:
       - name: Update image tag
         run: |
           ENV=${{ github.event.inputs.environment }}
+          echo ENV
           ls
           pwd
 
