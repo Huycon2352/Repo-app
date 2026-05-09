@@ -33,7 +33,11 @@ jobs:
       - name: Update image tag
         run: |
           ENV=${{ github.event.inputs.environment }}
-          
+
+          pwd
+          echo
+          ls
+          echo
           cd gitops/apps/$ENV
           
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
