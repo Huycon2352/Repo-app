@@ -20,6 +20,21 @@ jobs:
       # 1. Checkout app repo
       - name: Checkout
         uses: actions/checkout@v4
+        # 2. Login DockerHub
+      - name: Login Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      # 3. Build & Push
+      - name: Build & Push images
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA} ./vote
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA} ./result
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA} ./worker
+
+          docker push ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
+          docker push ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+          docker push ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+
         
 
       
@@ -35,16 +50,9 @@ jobs:
       - name: Update image tag
         run: |
           ENV=${{ github.event.inputs.environment }}
-          echo $ENV
-          ls
-          pwd
-          cd gitops
-          pwd
-          ls
-
-          #cd apps/$ENV
           
-      
+          #cd gitops/apps/$ENV
+          
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
           kustomize edit set image hgyang25/result-app=hgyang25/result-app:${GITHUB_SHA}
