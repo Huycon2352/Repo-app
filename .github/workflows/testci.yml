@@ -35,9 +35,9 @@ jobs:
           ENV=${{ github.event.inputs.environment }}
 
           pwd
-          echo
+          echo 1111111111111111
           ls
-          echo
+          echo 222222222222222222
           cd gitops/apps/$ENV
           
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
