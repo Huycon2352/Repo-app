@@ -49,6 +49,7 @@ jobs:
         run: |
           ENV=${{ github.event.inputs.environment }}
           cd k8s-gitops/apps/$ENV
+          git remote -v
 
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
