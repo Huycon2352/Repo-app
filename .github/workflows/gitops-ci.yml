@@ -42,7 +42,7 @@ jobs:
           pwd
           ls
 
-          #cd gitops/apps/$ENV
+          #cd apps/$ENV
           
       
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
