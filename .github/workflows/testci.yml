@@ -39,7 +39,7 @@ jobs:
           ls
           echo 222222222222222222
           cd gitops
-          echo3
+          echo          3
           pwd
           echo 4444444444
           ls
