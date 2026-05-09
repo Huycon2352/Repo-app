@@ -34,17 +34,8 @@ jobs:
         run: |
           ENV=${{ github.event.inputs.environment }}
 
-          pwd
-          echo 1111111111111111
-          ls
-          echo 222222222222222222
-          cd gitops
-          echo          3
-          pwd
-          echo 4444444444
-          git remote -v
-          ls
-          #cd gitops/apps/$ENV
+      
+          cd gitops/apps/$ENV
           
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
