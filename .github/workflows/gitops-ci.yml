@@ -52,10 +52,12 @@ jobs:
                 set -ex
             
                 ENV=${{ github.event.inputs.environment }}
+
+                cd gitops/apps/$ENV
+                
                 echo "Tag Before Changing Tag "
                 cat kustomization.yaml
-                cd gitops/apps/$ENV
-            
+                
                 kustomize edit set image hgyang25/vote-app=hgyang25/vote-app:${GITHUB_SHA}
                 kustomize edit set image hgyang25/result-app=hgyang25/result-app:${GITHUB_SHA}
                 kustomize edit set image hgyang25/worker-app=hgyang25/worker-app:${GITHUB_SHA}
