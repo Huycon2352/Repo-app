@@ -25,6 +25,9 @@ jobs:
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ vars.SONAR_URL }}
+      with:
+        args: > 
+          -X
     
     - name: Sonar Quality Gate
       uses: SonarSource/sonarqube-quality-gate-action@master
