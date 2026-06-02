@@ -46,21 +46,48 @@
 # CMD ["node", "server.js"]
 
 #v3
+# FROM node:20-slim
+
+# RUN apt-get update && apt-get upgrade -y && \
+#     apt-get install -y --no-install-recommends curl tini && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /usr/local/app
+
+# COPY package*.json ./
+
+# RUN npm ci --omit=dev
+
+# COPY . .
+
+# ENV PORT=80
+# EXPOSE 80
+
+# ENTRYPOINT ["/usr/bin/tini", "--"]
+# CMD ["node", "server.js"]
+
+#v4
 FROM node:20-slim
 
+# update OS packages + security fixes
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl tini && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
 
-COPY package*.json ./
+# copy dependency files first (better caching)
+COPY package.json package-lock.json ./
 
-RUN npm ci --omit=dev
+# install production dependencies only
+RUN npm ci --omit=dev --no-audit --no-fund
 
+# copy source code
 COPY . .
 
+ENV NODE_ENV=production
 ENV PORT=80
+
 EXPOSE 80
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
