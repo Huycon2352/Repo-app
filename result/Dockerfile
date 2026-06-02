@@ -30,11 +30,13 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends curl tini && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /usr/local/app
+RUN npm install -g nodemon
+COPY package*.json ./
 
-COPY package.json package-lock.json ./
-
-RUN npm ci --omit=dev
+RUN npm ci && \
+ npm cache clean --force && \
+ mv /usr/local/app/node_modules /node_modules
 
 COPY . .
 
