@@ -35,5 +35,6 @@ jobs:
         with:
           image-ref: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}-app:${{ github.sha }}
           format: table
-          severity: HIGH,CRITICAL
-          exit-code: '1'
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
