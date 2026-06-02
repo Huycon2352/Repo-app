@@ -31,12 +31,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
-RUN npm install -g nodemon
-COPY package*.json ./
 
-RUN npm ci && \
- npm cache clean --force && \
- mv /usr/local/app/node_modules /node_modules
+COPY package.json package-lock.json ./
+
+RUN npm ci --omit=dev
 
 COPY . .
 
