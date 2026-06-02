@@ -94,6 +94,26 @@
 # CMD ["node", "server.js"]
 
 #v5
+# FROM node:20-slim
+
+# RUN apt-get update && apt-get upgrade -y && \
+#     apt-get install -y --no-install-recommends curl tini && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /usr/local/app
+
+# COPY package.json package-lock.json ./
+
+# RUN npm ci --omit=dev
+
+# COPY . .
+
+# ENV NODE_ENV=production
+
+# ENTRYPOINT ["/usr/bin/tini", "--"]
+# CMD ["node", "server.js"]
+
+#v6
 FROM node:20-slim
 
 RUN apt-get update && apt-get upgrade -y && \
@@ -104,7 +124,7 @@ WORKDIR /usr/local/app
 
 COPY package.json package-lock.json ./
 
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --no-audit --no-fund
 
 COPY . .
 
