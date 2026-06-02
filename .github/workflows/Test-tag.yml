@@ -1,4 +1,4 @@
-name: CI-Test
+name: CI-Test-Tag
 
 on:
   workflow_dispatch:
