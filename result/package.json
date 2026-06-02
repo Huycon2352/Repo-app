@@ -1,3 +1,4 @@
+/*
 {
   "name": "result",
   "version": "1.0.0",
@@ -15,6 +16,27 @@
     "method-override": "^3.0.0",
     "pg": "^8.8.0",
     "socket.io": "^4.7.2",
+    "stoppable": "^1.1.0"
+  }
+}
+*/
+
+{
+  "name": "result",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.8.1",
+    "pg": "^8.11.5",
+    "cookie-parser": "^1.4.6",
+    "method-override": "^3.0.0",
     "stoppable": "^1.1.0"
   }
 }
