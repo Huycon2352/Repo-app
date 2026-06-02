@@ -24,18 +24,17 @@
 # ENTRYPOINT ["/usr/bin/tini", "--"]
 # CMD ["node", "server.js"]
 
-
 FROM node:20-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl tini && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/local/app
+WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev
 
 COPY . .
 
