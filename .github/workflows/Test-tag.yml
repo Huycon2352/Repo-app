@@ -38,9 +38,9 @@ jobs:
           cd gitops/apps/$ENV
           
           # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
-          kustomize edit set image huy951/vote-app=huy951/vote-app:${GITHUB_SHA}
-          kustomize edit set image huy951/result-app=huy951/result-app:${GITHUB_SHA}
-          kustomize edit set image huy951/worker-app=huy951/worker-app:${GITHUB_SHA}
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/vote-app=${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/result-app=${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/worker-app=${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
 
       # 6. Commit & push
       - name: Commit & push
