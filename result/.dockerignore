@@ -3,7 +3,7 @@ node_modules/
 .git
 .github
 .gitignore
-
+tests/
 npm-debug.log
 
 .env
