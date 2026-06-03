@@ -135,18 +135,49 @@
 
 #v7
 # vFINAL CLEAN
+# FROM node:22-bookworm-slim
+
+# RUN apt-get update && apt-get upgrade -y && \
+#     apt-get install -y --no-install-recommends tini ca-certificates && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /usr/local/app
+
+# # chỉ copy dependency trước để cache tốt hơn
+# COPY package*.json ./
+
+# # ép npm clean install
+# RUN npm ci --omit=dev --no-audit --no-fund
+
+# # copy source
+# COPY . .
+
+# # chạy non-root (giảm risk CVE exploit)
+# RUN useradd -m appuser && chown -R appuser /usr/local/app
+# USER appuser
+
+# ENV PORT=80
+# EXPOSE 80
+
+# ENTRYPOINT ["tini", "--"]
+# CMD ["node", "server.js"]
+
+#v8
 FROM node:22-bookworm-slim
 
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+# Cập nhật npm global lên bản mới nhất để xóa sạch CVE nội bộ của npm CLI
+RUN npm install -g npm@latest
+
 WORKDIR /usr/local/app
 
 # chỉ copy dependency trước để cache tốt hơn
 COPY package*.json ./
 
-# ép npm clean install
+# ép npm clean install (Giờ sẽ chạy thành công sau khi bạn làm Bước 1)
 RUN npm ci --omit=dev --no-audit --no-fund
 
 # copy source
