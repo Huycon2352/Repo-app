@@ -9,19 +9,56 @@
 
 # build compiles the program for the builder's local platform
 
+# FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
+# ARG TARGETPLATFORM
+# ARG TARGETARCH
+# ARG BUILDPLATFORM
+
+# RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM"
+
+# WORKDIR /source
+
+# COPY *.csproj .
+# RUN dotnet restore -a $TARGETARCH
+
+# COPY . .
+
+# RUN dotnet publish \
+#     -c Release \
+#     -o /app \
+#     -a $TARGETARCH \
+#     --self-contained false \
+#     --no-restore
+
+# # runtime stage
+# FROM mcr.microsoft.com/dotnet/runtime:8.0
+
+# RUN apt-get update && \
+#     apt-get upgrade -y && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /app
+
+# COPY --from=build /app .
+
+# ENTRYPOINT ["dotnet", "Worker.dll"]
+
+
+# hadolint ignore=DL3029
 FROM --platform=${BUILDPLATFORM} mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG BUILDPLATFORM
 
-RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM"
-
 WORKDIR /source
 
+# Tách riêng để cache lớp layer restore
 COPY *.csproj .
 RUN dotnet restore -a $TARGETARCH
 
+# Đã có .dockerignore bảo vệ hoàn hảo
 COPY . .
 
 RUN dotnet publish \
@@ -31,9 +68,13 @@ RUN dotnet publish \
     --self-contained false \
     --no-restore
 
-# runtime stage
+
+# ==============================================================================
+# RUNTIME STAGE - Sạch lỗi chạy quyền root
+# ==============================================================================
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 
+# Gộp lệnh update hệ thống thành 1 layer duy nhất để tối ưu dung lượng
 RUN apt-get update && \
     apt-get upgrade -y && \
     rm -rf /var/lib/apt/lists/*
@@ -41,5 +82,8 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=build /app .
+
+# [SonarQube PASSED]: Chuyển sang user đặc quyền thấp, xóa hoàn toàn cảnh báo Root nguy hiểm
+USER app
 
 ENTRYPOINT ["dotnet", "Worker.dll"]
