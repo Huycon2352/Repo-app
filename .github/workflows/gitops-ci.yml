@@ -1,4 +1,4 @@
-name: CI + GitOps Deploy
+name: CI-Test-Build-Push-Tag
 
 on:
   workflow_dispatch:
