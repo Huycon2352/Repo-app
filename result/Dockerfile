@@ -230,38 +230,77 @@
 # CMD ["node", "server.js"]
 
 #v10
+# FROM node:22-bookworm-slim
+
+# RUN apt-get update && apt-get upgrade -y && \
+#     apt-get install -y --no-install-recommends tini ca-certificates && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /usr/local/app
+
+# RUN useradd -m appuser && chown -R appuser /usr/local/app
+# USER appuser
+
+# ENV NPM_CONFIG_PREFIX=/home/appuser/.npm-global
+# ENV PATH=$NPM_CONFIG_PREFIX/bin:$PATH
+
+# #RUN npm install -g npm@latest --ignore-scripts
+# # Khóa cứng một phiên bản cụ thể để bảo mật phiên bản đầu vào
+# RUN npm install -g npm@10.8.1 --ignore-scripts
+
+# # BẮT BUỘC phải copy cả file package-lock.json sang
+# #COPY --chown=appuser:appuser package*.json ./
+# COPY --chown=appuser:appuser --chmod=755 package*.json ./
+
+# # THAY ĐỔI CHIẾN LƯỢC: Dùng npm ci thay cho npm install để khóa chặt phiên bản
+# # Lệnh này sẽ crash ngay nếu package-lock.json bị thiếu hoặc sai lệch
+# RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
+
+# # Áp dụng tương tự cho mã nguồn: root sở hữu, appuser chỉ đọc
+# COPY --chmod=444 . .
+
+# #COPY --chown=appuser:appuser  . .
+# COPY --chown=appuser:appuser --chmod=444 . .
+
+
+# ENV PORT=80
+# EXPOSE 80
+
+# ENTRYPOINT ["tini", "--"]
+# CMD ["node", "server.js"]
+
+
+#v11
+
 FROM node:22-bookworm-slim
 
+# [Trivy Fix]: Cập nhật hệ thống bảo mật và cài tini cho khâu quản lý tiến trình container
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
 
+# [SonarQube Fix]: Tạo user non-root để chạy ứng dụng
 RUN useradd -m appuser && chown -R appuser /usr/local/app
 USER appuser
 
 ENV NPM_CONFIG_PREFIX=/home/appuser/.npm-global
 ENV PATH=$NPM_CONFIG_PREFIX/bin:$PATH
 
-#RUN npm install -g npm@latest --ignore-scripts
 # Khóa cứng một phiên bản cụ thể để bảo mật phiên bản đầu vào
 RUN npm install -g npm@10.8.1 --ignore-scripts
 
-# BẮT BUỘC phải copy cả file package-lock.json sang
-#COPY --chown=appuser:appuser package*.json ./
-COPY --chown=appuser:appuser --chmod=755 package*.json ./
+# [SonarQube PASSED]: Hạ quyền package*.json xuống CHỈ ĐỌC (chmod 444), loại bỏ hoàn toàn quyền ghi (755)
+# Sử dụng quyền sở hữu của appuser để npm ci có thể đọc file mượt mà
+COPY --chown=appuser:appuser --chmod=444 package*.json ./
 
 # THAY ĐỔI CHIẾN LƯỢC: Dùng npm ci thay cho npm install để khóa chặt phiên bản
-# Lệnh này sẽ crash ngay nếu package-lock.json bị thiếu hoặc sai lệch
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
-# Áp dụng tương tự cho mã nguồn: root sở hữu, appuser chỉ đọc
-COPY --chmod=444 . .
-
-#COPY --chown=appuser:appuser  . .
+# [SonarQube PASSED]: Loại bỏ lệnh COPY trùng lặp. 
+# Chỉ giữ lại 1 lệnh sao chép mã nguồn duy nhất dưới quyền sở hữu của appuser và gán quyền CHỈ ĐỌC (444)
 COPY --chown=appuser:appuser --chmod=444 . .
-
 
 ENV PORT=80
 EXPOSE 80
