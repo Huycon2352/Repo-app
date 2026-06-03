@@ -33,7 +33,9 @@
 
 #v2
 
+# ==============================================================================
 # STAGE 1: BASE - Định nghĩa môi trường nền sạch
+# ==============================================================================
 FROM python:3.13-slim AS base
 
 # [Trivy Fix]: Cập nhật hệ thống và cài curl cho healthcheck
@@ -49,16 +51,19 @@ RUN useradd -m appuser && chown -R appuser /usr/local/app
 # [SonarQube Fix]: Copy file requirements với quyền CHỈ ĐỌC (chmod 444), thuộc về root
 COPY --chmod=444 requirements.txt ./requirements.txt
 
-# Cài đặt thư viện ứng dụng
-RUN pip install --no-cache-dir -r requirements.txt
+# [SonarQube Fix]: Ép pip chỉ cài file binary (.whl) từ file requirements đã khóa cứng version
+RUN pip install --no-cache-dir -r requirements.txt --only-binary=:all:
 
 
+# ==============================================================================
+# STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
+# ==============================================================================
 FROM base AS dev
 
 # Chuyển sang quyền root tạm thời để cài tool dev nếu cần, hoặc chạy thẳng bằng root tùy cấu hình local mount
 USER root
 
-# [SonarQube Fix]: Khóa version cố định (ví dụ: v4.0.1) + Ép chỉ dùng file binary tĩnh (.whl) bằng `--only-binary=:all:`
+# [SonarQube Fix]: Khóa version cố định + Ép chỉ dùng file binary tĩnh (.whl)
 RUN pip install --no-cache-dir watchdog==4.0.1 --only-binary=:all:
 
 ENV FLASK_ENV=development
@@ -67,7 +72,9 @@ ENV FLASK_ENV=development
 CMD ["python", "app.py"]
 
 
+# ==============================================================================
 # STAGE 3: FINAL - Bundle môi trường Production an toàn tuyệt đối
+# ==============================================================================
 FROM base AS final
 
 # [SonarQube Fix]: Copy toàn bộ source code thuộc sở hữu của root, appuser CHỈ CÓ QUYỀN ĐỌC (chmod 444)
@@ -80,5 +87,5 @@ USER appuser
 # Khai báo Port chạy ứng dụng
 EXPOSE 80
 
-# Chạy Production bằng Tini (nếu có) hoặc Gunicorn trực tiếp với tư cách appuser
+# Chạy Production bằng Gunicorn trực tiếp với tư cách appuser
 CMD ["gunicorn", "app:app", "-b", "0.0.0.0:80", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]
