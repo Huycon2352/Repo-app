@@ -53,12 +53,14 @@ COPY --chmod=444 requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-# STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
 FROM base AS dev
 
 # Chuyển sang quyền root tạm thời để cài tool dev nếu cần, hoặc chạy thẳng bằng root tùy cấu hình local mount
 USER root
-RUN pip install --no-cache-dir watchdog
+
+# [SonarQube Fix]: Khóa version cố định (ví dụ: v4.0.1) + Ép chỉ dùng file binary tĩnh (.whl) bằng `--only-binary=:all:`
+RUN pip install --no-cache-dir watchdog==4.0.1 --only-binary=:all:
+
 ENV FLASK_ENV=development
 
 # Ở môi trường dev, thường bạn sẽ mount code từ máy tính vào, nên có thể giữ quyền root để không bị lệch UID
