@@ -36,23 +36,21 @@
 # base defines a base stage that uses the official python runtime base image
 FROM python:3.11-slim AS base
 
-# [Trivy Fix]: Cập nhật hệ thống và cài curl
+# [Trivy Fix]: Cập nhật hệ thống và cài curl cho healthcheck (Gộp thành 1 layer)
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
 
-RUN useradd -m appuser && chown -R appuser /usr/local/app
-
-# 1. Cài đặt công cụ tự động sinh mã băm (pip-tools)
-RUN pip install --no-cache-dir pip-tools==7.4.1 --only-binary=:all:
-
-# 2. Copy file định hướng thư viện gốc vào với quyền chỉ đọc
+# [SonarQube Fix]: Copy file cấu hình gốc vào SỚM để phục vụ chuỗi lệnh RUN phía sau
 COPY --chmod=444 requirements.in ./requirements.in
 
-# 3. [SonarQube PASSED]: Ép hệ thống tự biên dịch ra file lock có hash chuẩn xác 100%
-RUN pip-compile --generate-hashes requirements.in && \
+# [SonarQube PASSED]: Gộp toàn bộ lệnh khởi tạo User, cài pip-tools, dịch hash và cài đặt vào 1 Layer duy nhất!
+RUN useradd -m appuser && \
+    chown -R appuser /usr/local/app && \
+    pip install --no-cache-dir pip-tools==7.4.1 --only-binary=:all: && \
+    pip-compile --generate-hashes requirements.in && \
     pip install --no-cache-dir -r requirements.txt --only-binary=:all: --require-hashes
 
 
