@@ -36,17 +36,24 @@
 # base defines a base stage that uses the official python runtime base image
 FROM python:3.11-slim AS base
 
-# Add curl for healthcheck
-RUN apt-get update && \
+# [Trivy Fix]: Cập nhật hệ thống và cài curl
+RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Set the application directory
 WORKDIR /usr/local/app
 
-# Install our requirements.txt
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
+RUN useradd -m appuser && chown -R appuser /usr/local/app
+
+# 1. Cài đặt công cụ tự động sinh mã băm (pip-tools)
+RUN pip install --no-cache-dir pip-tools==7.4.1 --only-binary=:all:
+
+# 2. Copy file định hướng thư viện gốc vào với quyền chỉ đọc
+COPY --chmod=444 requirements.in ./requirements.in
+
+# 3. [SonarQube PASSED]: Ép hệ thống tự biên dịch ra file lock có hash chuẩn xác 100%
+RUN pip-compile --generate-hashes requirements.in && \
+    pip install --no-cache-dir -r requirements.txt --only-binary=:all: --require-hashes
 
 
 # dev defines a stage for development, where it'll watch for filesystem changes
