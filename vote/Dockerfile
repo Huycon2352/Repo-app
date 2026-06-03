@@ -46,7 +46,7 @@ WORKDIR /usr/local/app
 
 # Install our requirements.txt
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --only-binary :all:  -r requirements.txt
 
 # dev defines a stage for development, where it'll watch for filesystem changes
 FROM base AS dev
