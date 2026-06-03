@@ -1,0 +1,118 @@
+name: CI-Deploy-All
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  # ==========================================
+  # JOB 1: CHẠY QUÉT CHẤT LƯỢNG CODE (SONARQUBE)
+  # ==========================================
+  sonar-scan:
+    name: SonarQube Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: SonarCloud/SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_URL }}
+        with:
+          args: -X
+
+  # =======================================================
+  # JOB 2: CHẠY SONG SONG (PARALLEL) BUILD & TRIVY SCAN & PUSH
+  # =======================================================
+  build-scan-push:
+    name: Build, Scan & Push (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Nếu 1 app lỗi, các app khác vẫn tiếp tục chạy
+      matrix:
+        app: [vote, result, worker] # Định nghĩa danh sách chạy song song
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/${{ matrix.app }}-app:${{ github.sha }} ./${{ matrix.app }}
+
+      - name: Trivy Vulnerability Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.app }}-app:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1 # Chặn đứng pipeline nếu phát hiện lỗ hổng nghiêm trọng chưa vá
+
+      - name: Push Image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.app }}-app:${{ github.sha }}
+
+  # ==========================================
+  # JOB 3: ĐỒNG BỘ TAG SANG REPO GITOPS
+  # ==========================================
+  update-gitops:
+    name: Update GitOps Tags & Push
+    needs: [sonar-scan, build-scan-push] # Chỉ chạy khi cả Sonar và Build đều PASS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.REPO_APP_OP }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+
+      - name: Update image tags using Kustomize
+        run: |
+          set -ex
+          ENV=${{ github.event.inputs.environment }}
+          
+          cd gitops/apps/$ENV
+          
+          echo "=== Tag BEFORE Changing ==="
+          cat kustomization.yaml
+          
+          # Cập nhật đồng thời tag mới cho cả 3 service
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/vote-app=${{ secrets.DOCKER_USERNAME }}/vote-app:${{ github.sha }}
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/result-app=${{ secrets.DOCKER_USERNAME }}/result-app:${{ github.sha }}
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/worker-app=${{ secrets.DOCKER_USERNAME }}/worker-app:${{ github.sha }}
+          
+          echo "=== Tag AFTER Changing ==="
+          cat kustomization.yaml
+
+      - name: Commit & Push to GitOps
+        run: |
+          set -ex
+          ENV=${{ github.event.inputs.environment }}
+          
+          cd gitops
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add .
+          
+          # Cơ chế Vòng lặp Rebase đề phòng xung đột ghi file (Race Condition) trên GitOps Repo
+          for i in {1..5}; do
+            git diff --staged --quiet || git commit -m "chore: update $ENV images to ${{ github.sha }}"
+            git pull --rebase origin main && \
+            git push origin main && break || sleep 5
+          done
