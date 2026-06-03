@@ -197,7 +197,6 @@
 #v9
 FROM node:22-bookworm-slim
 
-# 安装系统依赖
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
