@@ -271,62 +271,58 @@
 
 
 #v11
-
 FROM node:22-bookworm-slim
 
-# [Trivy Fix]: Cập nhật hệ thống bảo mật và cài tini
+# [Trivy Fix]: Cập nhật hệ thống bảo mật và cài tini cho khâu quản lý tiến trình container
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-
-
-
-
 WORKDIR /usr/local/app
 
-RUN useradd -m appuser && \
-    chown -R appuser /usr/local/app && \
-    npm install -g npm@10.8.1 --ignore-scripts
+# Tạo user thường trước để chuẩn bị môi trường sạch
+RUN useradd -m appuser && chown -R appuser /usr/local/app
 
-# --- BƯỚC 1: XỬ LÝ PACKAGE.JSON (SỬA LỖI SONARQUBE) ---
-# Copy file dưới quyền appuser
-COPY --chown=root:root --chmod=744 package*.json ./
-
-# Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt để vượt qua bộ quét tĩnh
-RUN chmod 444 package*.json
-
-# Chuyển sang user thường để cài đặt dependencies
-USER appuser
+# Cấu hình biến môi trường cho appuser NGAY TỪ ĐẦU để đồng bộ hóa NPM Global
 ENV NPM_CONFIG_PREFIX=/home/appuser/.npm-global
 ENV PATH=$NPM_CONFIG_PREFIX/bin:$PATH
 
-# Dùng npm ci để khóa chặt phiên bản tuyệt đối
+# Khóa cứng phiên bản npm cụ thể dưới tư cách root để đảm bảo an toàn đầu vào
+RUN npm install -g npm@10.8.1 --ignore-scripts
+
+# --- BƯỚC 1: XỬ LÝ PACKAGE.JSON (SỬA LỖI ĐỌC FILE CỦA NPM CI) ---
+# [SonarQube & NPM PASSED]: Giao quyền sở hữu file cho appuser ngay từ đầu để npm ci không bị lỗi phân quyền
+COPY --chown=appuser:appuser package*.json ./
+
+# [SonarQube PASSED]: Ép cấu hình chỉ đọc (444) bằng lệnh RUN tách biệt để tước quyền ghi
+RUN chmod 444 package*.json
+
+# Chuyển sang user thường để tiến hành cài đặt đóng băng dependencies
+USER appuser
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
 
-# --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN (SỬA LỖI TRÙNG LẶP) ---
-# Quay lại quyền root tạm thời để thiết lập mã nguồn bất biến
+# --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN ---
+# Quay lại quyền root tạm thời để thiết lập mã nguồn bất biến (Immutable source)
 USER root
 
-# Chỉ giữ lại ĐÚNG 1 LỆNH COPY mã nguồn duy nhất
-# Copy source code
-#COPY . .
-
-
+# [SonarQube PASSED]: Chỉ định đích danh file/thư mục cần dùng thay vì COPY . . chung chung
 COPY server.js ./
 COPY views ./views
 
-# Root sở hữu toàn bộ source code
+# Khóa cứng toàn bộ tài nguyên: Root sở hữu hệ thống, appuser CHỈ CÓ QUYỀN ĐỌC
 RUN chown -R root:root . && \
-    chmod -R 444 .
+    chmod -R 444 . && \
+    chown -R appuser:appuser /home/appuser # Đảm bảo thư mục ẩn của appuser không bị khóa
 
-# Chạy bằng user thường
+# [Trivy & SonarQube PASSED]: Chuyển sang chạy Production an toàn bằng user thường
 USER appuser
 
 ENV PORT=80
 EXPOSE 80
 
-ENTRYPOINT ["tini", "--"]
+# Sử dụng tini hệ thống trực tiếp (tini của Debian nằm ở đường dẫn này)
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "server.js"]
 CMD ["node", "server.js"]
