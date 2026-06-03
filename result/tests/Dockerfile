@@ -23,7 +23,8 @@ RUN apt-get update -qq && apt-get install -qy \
 
 RUN yarn global add phantomjs-prebuilt
 
-COPY . /app
+COPY render.js /app
+COPY test.sh /app
 
 WORKDIR /app
 
