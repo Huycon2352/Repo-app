@@ -280,13 +280,15 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+
+
+
+
 WORKDIR /usr/local/app
 
-# Khởi tạo user nền
-RUN useradd -m appuser && chown -R appuser /usr/local/app
-
-# Khóa cứng một phiên bản npm cụ thể bằng quyền root trước khi hạ quyền user
-RUN npm install -g npm@10.8.1 --ignore-scripts
+RUN useradd -m appuser && \
+    chown -R appuser /usr/local/app && \
+    npm install -g npm@10.8.1 --ignore-scripts
 
 # --- BƯỚC 1: XỬ LÝ PACKAGE.JSON (SỬA LỖI SONARQUBE) ---
 # Copy file dưới quyền appuser
