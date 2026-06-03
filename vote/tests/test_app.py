@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -16,20 +15,19 @@ def test_home():
     assert response.status_code == 200
 
 
-@patch("app.get_redis")
-def test_vote(mock_get_redis):
+@patch("app.Redis")
+def test_vote(mock_redis_class):
     mock_redis = MagicMock()
-    mock_get_redis.return_value = mock_redis
+    mock_redis_class.return_value = mock_redis
 
     client = app.test_client()
 
     response = client.post(
         "/",
-        data={"vote": "Cats"},
-        follow_redirects=True
+        data={"vote": "Cats"}
     )
 
     assert response.status_code == 200
 
-    mock_get_redis.assert_called_once()
+    mock_redis_class.assert_called_once()
     mock_redis.rpush.assert_called_once()
