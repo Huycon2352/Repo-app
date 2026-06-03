@@ -28,6 +28,22 @@ jobs:
       with:
         args: > 
           -X
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    
+    - name: Install dependencies
+      run: |
+        cd vote
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+    
+    - name: Run tests
+      run: |
+        cd vote
+        pytest --cov=app --cov-report=xml
     
     - name: Sonar Quality Gate
       uses: SonarSource/sonarqube-quality-gate-action@master
