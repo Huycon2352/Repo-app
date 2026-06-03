@@ -310,7 +310,11 @@ USER root
 
 # Chỉ giữ lại ĐÚNG 1 LỆNH COPY mã nguồn duy nhất
 # Copy source code
-COPY . .
+#COPY . .
+
+
+COPY server.js ./
+COPY views ./views
 
 # Root sở hữu toàn bộ source code
 RUN chown -R root:root . && \
