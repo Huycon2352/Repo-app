@@ -56,9 +56,7 @@ RUN pip install --no-cache-dir -r requirements.txt --only-binary=:all:
 
 
 
-==============================================================================
-STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
-==============================================================================
+#STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
 FROM base AS dev
 
 # Chuyển sang quyền root tạm thời để cài tool dev nếu cần, hoặc chạy thẳng bằng root tùy cấu hình local mount
