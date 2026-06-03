@@ -309,15 +309,14 @@ RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 USER root
 
 # Chỉ giữ lại ĐÚNG 1 LỆNH COPY mã nguồn duy nhất
+# Copy source code
 COPY . .
 
-# Khóa cứng toàn bộ thư mục app: root sở hữu, appuser CHỈ CÓ QUYỀN ĐỌC (444)
-# Hacker chiếm được container bằng appuser cũng không thể sửa đổi file hệ thống
-RUN chmod -R 444 . && \
-    chown -R root:root . && \
-    chown appuser:appuser server.js package.json
+# Root sở hữu toàn bộ source code
+RUN chown -R root:root . && \
+    chmod -R 444 .
 
-# Trả lại quyền cho appuser để container khởi chạy an toàn
+# Chạy bằng user thường
 USER appuser
 
 ENV PORT=80
