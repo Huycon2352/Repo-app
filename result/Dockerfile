@@ -281,33 +281,29 @@ RUN apt-get update && \
 
 WORKDIR /usr/local/app
 
-# Khởi tạo user nền cho SonarQube
+# Khởi tạo user nền
 RUN useradd -m appuser && chown -R appuser /usr/local/app
 
-# --- BƯỚC 1: XỬ LÝ DEPENDENCIES (Bảo mật 100%, Không cài đè NPM lỗi) ---
-# [Trivy & SonarQube PASSED]: Không dùng lệnh npm install -g npm cũ kỹ nữa!
-# Sử dụng trực tiếp npm có sẵn trong Node 22 để sạch bóng lỗ hổng minimatch, glob.
+# [Trivy Fix]: Nâng cấp chính bộ công cụ npm lên bản mới nhất để vá lỗ hổng picomatch nội tại
+RUN npm install -g npm@latest --ignore-scripts
 
-# Copy file cấu hình giao quyền trực tiếp cho appuser
+# --- BƯỚC 1: XỬ LÝ DEPENDENCIES ---
 COPY --chown=appuser:appuser package*.json ./
 
-# Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt để vượt qua bộ quét tĩnh của SonarQube
+# Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt
 RUN chmod 444 package*.json
 
-# Chuyển sang user thường để tiến hành cài đặt đóng băng dependencies
+# Chuyển sang user thường
 USER appuser
 
-# [GitHub Actions Fix]: Nếu trên Git không có package-lock.json, lệnh npm ci sẽ lỗi.
-# Sử dụng cấu hình thông minh: Ưu tiên npm ci, nếu thiếu file lock sẽ tự động rollback an toàn về npm install
+# Cài đặt an toàn (sẽ hết lỗi High Trivy vì package-lock.json từ GitHub đã được bạn update ở Bước 1)
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts || \
     npm install --omit=dev --no-audit --no-fund --ignore-scripts
 
 
 # --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN ---
-# Quay lại quyền root tạm thời để thiết lập mã nguồn bất biến (Immutable source)
 USER root
 
-# [SonarQube PASSED]: Chỉ định đích danh tài nguyên cần dùng thay vì COPY . . chung chung nguy hiểm
 COPY server.js ./
 # COPY views ./views <-- Mở comment dòng này nếu dự án của bạn có thư mục views
 
@@ -322,7 +318,6 @@ USER appuser
 ENV PORT=80
 EXPOSE 80
 
-# Sử dụng chính xác đường dẫn tini của gói Debian Slim
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server.js"]
 
