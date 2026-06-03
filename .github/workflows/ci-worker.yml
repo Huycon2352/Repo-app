@@ -1,0 +1,107 @@
+name: CI-Service-Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'worker/**'
+
+jobs:
+  sonar-scan:
+    name: SonarQube Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_URL }}
+        with:
+          args: -X
+
+      - name: Sonar Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  build-secure-push-tag:
+    name: Build, Trivy, Push & Update Tag
+    needs: sonar-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA} ./worker
+
+      - name: Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+
+      - name: Clone GitOps repo
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.REPO_APP_OP }}
+          token: ${{ secrets.GITOPS_PAT }}
+          path: gitops
+          
+      - name: Update image tag
+        if: github.event_name != 'pull_request'
+        run: |
+          set -ex
+          ENV=${{ github.event.inputs.environment || 'dev' }}
+          
+          cd gitops/apps/$ENV
+          echo "Tag Before Changing Tag "
+          cat kustomization.yaml
+          
+          kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/worker-app=${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+          
+          echo "Tag After Changing Tag "
+          cat kustomization.yaml
+
+      - name: Commit & push
+        if: github.event_name != 'pull_request'
+        run: |
+          set -ex
+          ENV=${{ github.event.inputs.environment || 'dev' }}
+          cd gitops
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+          
+          for i in {1..5}; do
+            git diff --staged --quiet || git commit -m "update $ENV worker image to ${GITHUB_SHA}"
+            git pull --rebase origin main && \
+            git push origin main && break || sleep 5
+          done
