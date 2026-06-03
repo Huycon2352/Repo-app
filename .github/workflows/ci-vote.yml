@@ -63,11 +63,11 @@ jobs:
 
       # Các bước ghi vào GitOps dưới đây chỉ chạy khi Merge/Workflow Dispatch (không chạy trên Pull Request)
       - name: Push image
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         run: docker push ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
 
       - name: Clone GitOps repo
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.REPO_APP_OP }}
@@ -75,25 +75,25 @@ jobs:
           path: gitops
           
       - name: Update image tag
-        if: github.event_name != 'pull_request'
         run: |
-          set -ex
-          ENV=${{ github.event.inputs.environment || 'dev' }}
+          ENV=${{ github.event.inputs.environment }}
+
+      
           cd gitops/apps/$ENV
+          
+          # Kustomize sẽ tự động tìm image có name khớp và đổi newTag thành SHA mới
           kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/vote-app=${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
 
+      # 6. Commit & push
       - name: Commit & push
-        if: github.event_name != 'pull_request'
         run: |
-          set -ex
+          ENV=${{ github.event.inputs.environment }}
           cd gitops
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add .
-          
-          ENV=${{ github.event.inputs.environment || 'dev' }}
-          for i in {1..5}; do
-            git commit -m "chore(vote): update image tag ${GITHUB_SHA} for $ENV" && \
-            git pull --rebase origin main && \
-            git push origin main && break || sleep 5
-          done
+          # Thêm --staged vào dòng bên dưới
+          git diff --staged --quiet || git commit -m "update $ENV image to ${GITHUB_SHA}"
+          git push origin main
