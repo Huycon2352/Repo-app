@@ -13,9 +13,7 @@ on:
           - prod
 
 jobs:
-  # ==========================================
   # JOB 1: CHẠY QUÉT CHẤT LƯỢNG CODE (SONARQUBE)
-  # ==========================================
   sonar-scan:
     name: SonarQube Quality Analysis
     runs-on: ubuntu-latest
@@ -31,9 +29,8 @@ jobs:
         with:
           args: -X
 
-  # =======================================================
   # JOB 2: CHẠY SONG SONG (PARALLEL) BUILD & TRIVY SCAN & PUSH
-  # =======================================================
+  
   build-scan-push:
     name: Build, Scan & Push (${{ matrix.app }})
     runs-on: ubuntu-latest
@@ -66,9 +63,7 @@ jobs:
       - name: Push Image
         run: docker push ${{ secrets.DOCKER_USERNAME }}/${{ matrix.app }}-app:${{ github.sha }}
 
-  # ==========================================
   # JOB 3: ĐỒNG BỘ TAG SANG REPO GITOPS
-  # ==========================================
   update-gitops:
     name: Update GitOps Tags & Push
     needs: [sonar-scan, build-scan-push] # Chỉ chạy khi cả Sonar và Build đều PASS
