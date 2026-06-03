@@ -321,31 +321,33 @@
 # ENTRYPOINT ["/usr/bin/tini", "--"]
 # CMD ["node", "server.js"]
 
-
-
 FROM node:22-bookworm-slim
 
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends tini && \
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends tini ca-certificates && \
     rm -rf /var/lib/apt/lists/*
+
+# Cập nhật npm global lên bản mới nhất để xóa sạch CVE nội bộ của npm CLI
+RUN npm install -g npm@latest
 
 WORKDIR /usr/local/app
 
+# chỉ copy dependency trước để cache tốt hơn
 COPY package*.json ./
 
-RUN npm ci --omit=dev
-
+# ép npm clean install (Giờ sẽ chạy thành công sau khi bạn làm Bước 1)
+#RUN npm ci --omit=dev --no-audit --no-fund
+# Thay thế npm ci bằng npm install
+RUN npm install --omit=dev --no-audit --no-fund
+# copy source
 COPY . .
 
-RUN useradd -m appuser && \
-    chown -R appuser:appuser /usr/local/app
-
+# chạy non-root (giảm risk CVE exploit)
+RUN useradd -m appuser && chown -R appuser /usr/local/app
 USER appuser
 
+ENV PORT=80
 EXPOSE 80
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
 CMD ["node", "server.js"]
-
-
