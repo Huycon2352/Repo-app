@@ -256,7 +256,9 @@ COPY --chown=appuser:appuser --chmod=755 package*.json ./
 # Lệnh này sẽ crash ngay nếu package-lock.json bị thiếu hoặc sai lệch
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
-COPY --chown=appuser:appuser . .
+#COPY --chown=appuser:appuser  . .
+COPY --chown=appuser:appuser --chmod=755 . .
+
 
 ENV PORT=80
 EXPOSE 80
