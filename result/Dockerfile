@@ -244,7 +244,9 @@ USER appuser
 ENV NPM_CONFIG_PREFIX=/home/appuser/.npm-global
 ENV PATH=$NPM_CONFIG_PREFIX/bin:$PATH
 
-RUN npm install -g npm@latest --ignore-scripts
+#RUN npm install -g npm@latest --ignore-scripts
+# Khóa cứng một phiên bản cụ thể để bảo mật phiên bản đầu vào
+RUN npm install -g npm@10.8.1 --ignore-scripts
 
 # BẮT BUỘC phải copy cả file package-lock.json sang
 COPY --chown=appuser:appuser package*.json ./
