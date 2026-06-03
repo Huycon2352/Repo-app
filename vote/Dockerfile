@@ -9,9 +9,15 @@ RUN apt-get update && \
 # Set the application directory
 WORKDIR /usr/local/app
 
-# Install our requirements.txt
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
+# # Install our requirements.txt
+# COPY requirements.txt ./requirements.txt
+# RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt
+
+COPY requirements.in .
+
+RUN pip install pip-tools && \
+    pip-compile --generate-hashes requirements.in && \
+    pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # dev defines a stage for development, where it'll watch for filesystem changes
 FROM base AS dev
