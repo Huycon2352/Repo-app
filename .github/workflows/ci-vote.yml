@@ -63,11 +63,11 @@ jobs:
 
       # Các bước ghi vào GitOps dưới đây chỉ chạy khi Merge/Workflow Dispatch (không chạy trên Pull Request)
       - name: Push image
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         run: docker push ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
 
       - name: Clone GitOps repo
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.REPO_APP_OP }}
@@ -75,7 +75,7 @@ jobs:
           path: gitops
           
       - name: Update image tag
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         run: |
           set -ex
           ENV=${{ github.event.inputs.environment || 'dev' }}
@@ -90,7 +90,7 @@ jobs:
           cat kustomization.yaml
 
       - name: Commit & push
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         run: |
           set -ex
           ENV=${{ github.event.inputs.environment || 'dev' }}
