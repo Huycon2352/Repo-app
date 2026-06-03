@@ -256,6 +256,9 @@ COPY --chown=appuser:appuser --chmod=444 package*.json ./
 # Lệnh này sẽ crash ngay nếu package-lock.json bị thiếu hoặc sai lệch
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
+# Áp dụng tương tự cho mã nguồn: root sở hữu, appuser chỉ đọc
+COPY --chmod=444 . .
+
 #COPY --chown=appuser:appuser  . .
 COPY --chown=appuser:appuser --chmod=444 . .
 
