@@ -271,55 +271,81 @@
 
 #v11
 
+# FROM node:22-bookworm-slim
+
+# # [Trivy Fix]: Cập nhật các bản vá bảo mật của hệ điều hành OS và cài gói tini
+# RUN apt-get update && \
+#     apt-get upgrade -y && \
+#     apt-get install -y --no-install-recommends tini ca-certificates && \
+#     rm -rf /var/lib/apt/lists/*
+
+# WORKDIR /usr/local/app
+
+# # Khởi tạo user nền
+# RUN useradd -m appuser && chown -R appuser /usr/local/app
+
+# # [Trivy Fix]: Nâng cấp chính bộ công cụ npm lên bản mới nhất để vá lỗ hổng picomatch nội tại
+# RUN npm install -g npm@latest --ignore-scripts
+
+# # --- BƯỚC 1: XỬ LÝ DEPENDENCIES ---
+# COPY --chown=appuser:appuser package*.json ./
+
+# # Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt
+# RUN chmod 444 package*.json
+
+# # Chuyển sang user thường
+# USER appuser
+
+# # Cài đặt an toàn (sẽ hết lỗi High Trivy vì package-lock.json từ GitHub đã được bạn update ở Bước 1)
+# RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts || \
+#     npm install --omit=dev --no-audit --no-fund --ignore-scripts
+
+
+# # --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN ---
+# USER root
+
+# COPY server.js ./
+# # COPY views ./views <-- Mở comment dòng này nếu dự án của bạn có thư mục views
+
+# # Tước bỏ quyền ghi của hacker trên toàn bộ mã nguồn hệ thống
+# RUN chown -R root:root . && \
+#     chmod -R 444 . && \
+#     chown -R appuser:appuser /home/appuser
+
+# # Chuyển quyền chạy môi trường sang user thường
+# USER appuser
+
+# ENV PORT=80
+# EXPOSE 80
+
+# ENTRYPOINT ["/usr/bin/tini", "--"]
+# CMD ["node", "server.js"]
+
+
+
 FROM node:22-bookworm-slim
 
-# [Trivy Fix]: Cập nhật các bản vá bảo mật của hệ điều hành OS và cài gói tini
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends tini ca-certificates && \
+    apt-get install -y --no-install-recommends tini && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/app
 
-# Khởi tạo user nền
-RUN useradd -m appuser && chown -R appuser /usr/local/app
+COPY package*.json ./
 
-# [Trivy Fix]: Nâng cấp chính bộ công cụ npm lên bản mới nhất để vá lỗ hổng picomatch nội tại
-RUN npm install -g npm@latest --ignore-scripts
+RUN npm ci --omit=dev
 
-# --- BƯỚC 1: XỬ LÝ DEPENDENCIES ---
-COPY --chown=appuser:appuser package*.json ./
+COPY . .
 
-# Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt
-RUN chmod 444 package*.json
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /usr/local/app
 
-# Chuyển sang user thường
 USER appuser
 
-# Cài đặt an toàn (sẽ hết lỗi High Trivy vì package-lock.json từ GitHub đã được bạn update ở Bước 1)
-RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts || \
-    npm install --omit=dev --no-audit --no-fund --ignore-scripts
-
-
-# --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN ---
-USER root
-
-COPY server.js ./
-# COPY views ./views <-- Mở comment dòng này nếu dự án của bạn có thư mục views
-
-# Tước bỏ quyền ghi của hacker trên toàn bộ mã nguồn hệ thống
-RUN chown -R root:root . && \
-    chmod -R 444 . && \
-    chown -R appuser:appuser /home/appuser
-
-# Chuyển quyền chạy môi trường sang user thường
-USER appuser
-
-ENV PORT=80
 EXPOSE 80
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server.js"]
-
 
 
