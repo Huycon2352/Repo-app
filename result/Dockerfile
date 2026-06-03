@@ -250,14 +250,14 @@ RUN npm install -g npm@10.8.1 --ignore-scripts
 
 # BẮT BUỘC phải copy cả file package-lock.json sang
 #COPY --chown=appuser:appuser package*.json ./
-COPY --chown=appuser:appuser --chmod=755 package*.json ./
+COPY --chown=appuser:appuser --chmod=444 package*.json ./
 
 # THAY ĐỔI CHIẾN LƯỢC: Dùng npm ci thay cho npm install để khóa chặt phiên bản
 # Lệnh này sẽ crash ngay nếu package-lock.json bị thiếu hoặc sai lệch
 RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
 #COPY --chown=appuser:appuser  . .
-COPY --chown=appuser:appuser --chmod=755 . .
+COPY --chown=appuser:appuser --chmod=444 . .
 
 
 ENV PORT=80
