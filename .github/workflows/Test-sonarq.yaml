@@ -41,9 +41,9 @@ jobs:
         pip install pytest pytest-cov
     
     - name: Run tests
+      working-directory: vote
       run: |
-        cd vote
-        pytest --cov=app --cov-report=xml
+        PYTHONPATH=. pytest --cov=app --cov-report=xml
     
     - name: Sonar Quality Gate
       uses: SonarSource/sonarqube-quality-gate-action@master
