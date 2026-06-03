@@ -290,7 +290,7 @@ RUN npm install -g npm@10.8.1 --ignore-scripts
 
 # --- BƯỚC 1: XỬ LÝ PACKAGE.JSON (SỬA LỖI SONARQUBE) ---
 # Copy file dưới quyền appuser
-COPY --chown=root:root 744 package*.json ./
+COPY --chown=root:root --chmod=744 package*.json ./
 
 # Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt để vượt qua bộ quét tĩnh
 RUN chmod 444 package*.json
