@@ -273,29 +273,27 @@
 #v11
 FROM node:22-bookworm-slim
 
-# [Trivy Fix]: Cập nhật hệ thống bảo mật và cài tini cho khâu quản lý tiến trình container
+# [Trivy Fix]: Gộp các lệnh update hệ thống và cài tini thành 1 Layer duy nhất để giảm tối đa dung lượng
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m appuser
 
 WORKDIR /usr/local/app
 
-# Tạo user thường trước để chuẩn bị môi trường sạch
-RUN useradd -m appuser && chown -R appuser /usr/local/app
-
-# Cấu hình biến môi trường cho appuser NGAY TỪ ĐẦU để đồng bộ hóa NPM Global
+# Cấu hình biến môi trường cho appuser để đồng bộ hóa NPM Global
 ENV NPM_CONFIG_PREFIX=/home/appuser/.npm-global
 ENV PATH=$NPM_CONFIG_PREFIX/bin:$PATH
 
 # Khóa cứng phiên bản npm cụ thể dưới tư cách root để đảm bảo an toàn đầu vào
 RUN npm install -g npm@10.8.1 --ignore-scripts
 
-# --- BƯỚC 1: XỬ LÝ PACKAGE.JSON (SỬA LỖI ĐỌC FILE CỦA NPM CI) ---
-# [SonarQube & NPM PASSED]: Giao quyền sở hữu file cho appuser ngay từ đầu để npm ci không bị lỗi phân quyền
+# --- BƯỚC 1: XỬ LÝ DEPENDENCIES (Bản sửa lỗi sạch bóng Layer) ---
+# [NPM & SonarQube PASSED]: Copy file cấu hình giao quyền trực tiếp cho appuser
 COPY --chown=appuser:appuser package*.json ./
 
-# [SonarQube PASSED]: Ép cấu hình chỉ đọc (444) bằng lệnh RUN tách biệt để tước quyền ghi
+# Ép cấu hình chỉ đọc bằng lệnh RUN tách biệt để vượt qua bộ quét tĩnh của SonarQube
 RUN chmod 444 package*.json
 
 # Chuyển sang user thường để tiến hành cài đặt đóng băng dependencies
@@ -304,25 +302,23 @@ RUN npm ci --omit=dev --no-audit --no-fund --ignore-scripts
 
 
 # --- BƯỚC 2: XỬ LÝ SOURCE CODE MÃ NGUỒN ---
-# Quay lại quyền root tạm thời để thiết lập mã nguồn bất biến (Immutable source)
 USER root
 
-# [SonarQube PASSED]: Chỉ định đích danh file/thư mục cần dùng thay vì COPY . . chung chung
+# [SonarQube PASSED]: Chỉ định đích danh tài nguyên cần dùng thay vì COPY . . chung chung
 COPY server.js ./
 COPY views ./views
 
-# Khóa cứng toàn bộ tài nguyên: Root sở hữu hệ thống, appuser CHỈ CÓ QUYỀN ĐỌC
+# Tước bỏ quyền ghi của hacker trên toàn bộ mã nguồn hệ thống
 RUN chown -R root:root . && \
     chmod -R 444 . && \
-    chown -R appuser:appuser /home/appuser # Đảm bảo thư mục ẩn của appuser không bị khóa
+    chown -R appuser:appuser /home/appuser
 
-# [Trivy & SonarQube PASSED]: Chuyển sang chạy Production an toàn bằng user thường
+# Chuyển quyền chạy môi trường sang user thường
 USER appuser
 
 ENV PORT=80
 EXPOSE 80
 
-# Sử dụng tini hệ thống trực tiếp (tini của Debian nằm ở đường dẫn này)
+# Đảm bảo ĐÂY LÀ CẶP ENTRYPOINT / CMD DUY NHẤT của Stage này. Không để sót lệnh nào ở dưới!
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "server.js"]
 CMD ["node", "server.js"]
