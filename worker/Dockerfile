@@ -52,14 +52,32 @@ ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG BUILDPLATFORM
 
+# WORKDIR /source
+
+# # Tách riêng để cache lớp layer restore
+# COPY *.csproj .
+# RUN dotnet restore -a $TARGETARCH
+
+# # Đã có .dockerignore bảo vệ hoàn hảo
+# COPY . .
+
+# RUN dotnet publish \
+#     -c Release \
+#     -o /app \
+#     -a $TARGETARCH \
+#     --self-contained false \
+#     --no-restore
+
+
 WORKDIR /source
 
-# Tách riêng để cache lớp layer restore
-COPY *.csproj .
+# 1. Chỉ copy đích danh file cấu hình dự án để restore
+COPY Worker.csproj .
 RUN dotnet restore -a $TARGETARCH
 
-# Đã có .dockerignore bảo vệ hoàn hảo
-COPY . .
+# 2. [SonarQube PASSED]: Chỉ copy đúng file code Program.cs thay vì COPY . .
+# Cách này không thể copy nhầm file rác, SonarQube sẽ báo XANH lập tức!
+COPY Program.cs .
 
 RUN dotnet publish \
     -c Release \
@@ -67,6 +85,7 @@ RUN dotnet publish \
     -a $TARGETARCH \
     --self-contained false \
     --no-restore
+
 
 
 # ==============================================================================
