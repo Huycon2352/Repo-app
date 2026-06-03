@@ -59,9 +59,70 @@ RUN pip install --no-cache-dir -r requirements.txt --only-binary=:all:
 # ==============================================================================
 # STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
 # ==============================================================================
+# FROM base AS dev
+
+# # Chuyển sang quyền root tạm thời để cài tool dev nếu cần, hoặc chạy thẳng bằng root tùy cấu hình local mount
+# USER root
+
+# # [SonarQube Fix]: Khóa version cố định + Ép chỉ dùng file binary tĩnh (.whl)
+# RUN pip install --no-cache-dir watchdog==4.0.1 --only-binary=:all:
+
+# ENV FLASK_ENV=development
+
+# # Ở môi trường dev, thường bạn sẽ mount code từ máy tính vào, nên có thể giữ quyền root để không bị lệch UID
+# CMD ["python", "app.py"]
+
+
+# # ==============================================================================
+# # STAGE 3: FINAL - Bundle môi trường Production an toàn tuyệt đối
+# # ==============================================================================
+# FROM base AS final
+
+# # [SonarQube Fix]: Copy toàn bộ source code thuộc sở hữu của root, appuser CHỈ CÓ QUYỀN ĐỌC (chmod 444)
+# # Điều này chặn đứng hacker chạy lệnh bẻ khóa chmod nếu chúng chiếm được container
+# COPY --chmod=444 . .
+
+# # [SonarQube & Trivy Fix]: Kích hoạt user thường để chạy Gunicorn
+# USER appuser
+
+# # Khai báo Port chạy ứng dụng
+# EXPOSE 80
+
+# # Chạy Production bằng Gunicorn trực tiếp với tư cách appuser
+# CMD ["gunicorn", "app:app", "-b", "0.0.0.0:80", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]
+
+
+#v3
+
+# STAGE 1: BASE - Định nghĩa môi trường nền sạch dùng Pipenv
+# 
+FROM python:3.13-slim AS base
+
+# [Trivy Fix]: Cập nhật hệ thống và cài curl cho healthcheck
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/local/app
+
+# [SonarQube Fix]: Tạo user non-root SỚM ở lớp base để các stage sau thừa kế
+RUN useradd -m appuser && chown -R appuser /usr/local/app
+
+# [SonarQube Fix]: Cài đặt chính công cụ pipenv CLI bằng file binary (.whl) tĩnh, khóa version
+RUN pip install --no-cache-dir pipenv==2024.4.0 --only-binary=:all:
+
+# [SonarQube Fix]: Copy file cấu hình và file lock với quyền CHỈ ĐỌC (chmod 444)
+COPY --chmod=444 Pipfile Pipfile.lock ./
+
+# [SonarQube PASSED]: Ép buộc cài đặt đóng băng 100% từ lockfile vào thẳng hệ thống container
+RUN pipenv sync --system
+
+
+# 
+# STAGE 2: DEV - Môi trường dành cho lập trình viên (Watchdog)
 FROM base AS dev
 
-# Chuyển sang quyền root tạm thời để cài tool dev nếu cần, hoặc chạy thẳng bằng root tùy cấu hình local mount
+# Chuyển sang quyền root tạm thời để cài tool dev nếu cần
 USER root
 
 # [SonarQube Fix]: Khóa version cố định + Ép chỉ dùng file binary tĩnh (.whl)
@@ -69,17 +130,14 @@ RUN pip install --no-cache-dir watchdog==4.0.1 --only-binary=:all:
 
 ENV FLASK_ENV=development
 
-# Ở môi trường dev, thường bạn sẽ mount code từ máy tính vào, nên có thể giữ quyền root để không bị lệch UID
+# Ở môi trường dev, thường bạn sẽ mount code từ máy tính vào nên giữ quyền root
 CMD ["python", "app.py"]
 
 
-# ==============================================================================
 # STAGE 3: FINAL - Bundle môi trường Production an toàn tuyệt đối
-# ==============================================================================
 FROM base AS final
 
 # [SonarQube Fix]: Copy toàn bộ source code thuộc sở hữu của root, appuser CHỈ CÓ QUYỀN ĐỌC (chmod 444)
-# Điều này chặn đứng hacker chạy lệnh bẻ khóa chmod nếu chúng chiếm được container
 COPY --chmod=444 . .
 
 # [SonarQube & Trivy Fix]: Kích hoạt user thường để chạy Gunicorn
