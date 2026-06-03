@@ -1,4 +1,94 @@
-name: CI-Test-Build-Push-Tag
+# name: CI-Test-Build-Push-Tag
+
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       environment:
+#         description: "Select environment"
+#         required: true
+#         default: "dev"
+#         type: choice
+#         options:
+#           - dev
+#           - prod
+
+# jobs:
+#   build-and-update:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # 1. Checkout app repo
+#       - name: Checkout
+#         uses: actions/checkout@v4
+#         # 2. Login DockerHub
+#       - name: Login Docker Hub
+#         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+#       # 3. Build & Push
+#       - name: Build & Push images
+#         run: |
+#           docker build -t ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA} ./vote
+#           docker build -t ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA} ./result
+#           docker build -t ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA} ./worker
+
+#           docker push ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
+#           docker push ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+#           docker push ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+
+        
+
+      
+#       # 4. Clone GitOps repo
+#       - name: Clone GitOps repo
+#         uses: actions/checkout@v4
+#         with:
+#           repository: ${{ vars.REPO_APP_OP }}
+#           token: ${{ secrets.GITOPS_PAT }}
+#           path: gitops
+          
+#           # 5. Update image tag using Kustomize
+#       - name: Update image tag
+#         run: |
+#                 set -ex
+            
+#                 ENV=${{ github.event.inputs.environment }}
+
+#                 cd gitops/apps/$ENV
+                
+#                 echo "Tag Before Changing Tag "
+#                 cat kustomization.yaml
+                
+#                 kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/vote-app=${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
+#                 kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/result-app=${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+#                 kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/worker-app=${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+
+#                 echo "Tag Before Changing Tag "        
+#                 cat kustomization.yaml
+#        # 6. Commit & push   
+#       - name: Commit & push
+#         run: |
+#                 set -ex
+            
+#                 cd gitops
+            
+#                 git config user.name "github-actions[bot]"
+#                 git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+#                 git status
+            
+#                 git add .
+            
+#                 git status
+            
+#                 git diff --cached
+            
+#                 git commit -m "update image tag ${GITHUB_SHA}" || echo "No changes"
+            
+#                 git push origin main
+
+
+
+name: CI-Service-Result
 
 on:
   workflow_dispatch:
@@ -12,76 +102,95 @@ on:
           - dev
           - prod
 
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'result/**'
+
 jobs:
-  build-and-update:
+  sonar-scan:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout app repo
       - name: Checkout
         uses: actions/checkout@v4
-        # 2. Login DockerHub
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_URL }}
+
+  build-secure-push-tag:
+    needs: sonar-scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Login Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-      # 3. Build & Push
-      - name: Build & Push images
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA} ./vote
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA} ./result
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA} ./worker
+          echo "${{ secrets.DOCKER_PASSWORD }}" | \
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-          docker push ${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
-          docker push ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
-          docker push ${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+      - name: Build image
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA} \
+            ./result
 
-        
+      - name: Trivy Scan
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
 
-      
-      # 4. Clone GitOps repo
+      - name: Push image
+        run: |
+          docker push \
+          ${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+
       - name: Clone GitOps repo
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.REPO_APP_OP }}
           token: ${{ secrets.GITOPS_PAT }}
           path: gitops
-          
-          # 5. Update image tag using Kustomize
+
       - name: Update image tag
         run: |
-                set -ex
-            
-                ENV=${{ github.event.inputs.environment }}
+          set -ex
 
-                cd gitops/apps/$ENV
-                
-                echo "Tag Before Changing Tag "
-                cat kustomization.yaml
-                
-                kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/vote-app=${{ secrets.DOCKER_USERNAME }}/vote-app:${GITHUB_SHA}
-                kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/result-app=${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
-                kustomize edit set image ${{ secrets.DOCKER_USERNAME }}/worker-app=${{ secrets.DOCKER_USERNAME }}/worker-app:${GITHUB_SHA}
+          ENV=${{ github.event.inputs.environment || 'dev' }}
 
-                echo "Tag Before Changing Tag "        
-                cat kustomization.yaml
-       # 6. Commit & push   
+          cd gitops/apps/$ENV
+
+          cat kustomization.yaml
+
+          kustomize edit set image \
+          ${{ secrets.DOCKER_USERNAME }}/result-app=${{ secrets.DOCKER_USERNAME }}/result-app:${GITHUB_SHA}
+
+          cat kustomization.yaml
+
       - name: Commit & push
         run: |
-                set -ex
-            
-                cd gitops
-            
-                git config user.name "github-actions[bot]"
-                git config user.email "github-actions[bot]@users.noreply.github.com"
-            
-                git status
-            
-                git add .
-            
-                git status
-            
-                git diff --cached
-            
-                git commit -m "update image tag ${GITHUB_SHA}" || echo "No changes"
-            
-                git push origin main
+          set -ex
+
+          ENV=${{ github.event.inputs.environment || 'dev' }}
+
+          cd gitops
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          git commit -m "update $ENV result image to ${GITHUB_SHA}" || echo "No changes"
+
+          git pull --rebase origin main
+          git push origin main
