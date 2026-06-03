@@ -178,8 +178,9 @@ WORKDIR /usr/local/app
 COPY package*.json ./
 
 # ép npm clean install (Giờ sẽ chạy thành công sau khi bạn làm Bước 1)
-RUN npm ci --omit=dev --no-audit --no-fund
-
+#RUN npm ci --omit=dev --no-audit --no-fund
+# Thay thế npm ci bằng npm install
+RUN npm install --omit=dev --no-audit --no-fund
 # copy source
 COPY . .
 
