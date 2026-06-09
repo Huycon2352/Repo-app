@@ -1,0 +1,16 @@
+#prometheus:
+#  prometheusSpec:
+#    retention: 30d
+    # Cách viết này ép Operator tạo ra flag đứng một mình: --web.enable-remote-write-receiver
+#    additionalPrometheusArgs:
+#    - --web.enable-remote-write-receiver
+
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    # Sử dụng additionalArgs để ép tham số trực tiếp vào lệnh khởi chạy
+    #additionalArgs:
+    #  - name: web.enable-remote-write-receiver
+    #    value: "" # Để trống value để nó render ra dạng --web.enable-remote-write-receiver
+    additionalPrometheusArgs:
+    - --web.enable-remote-write-receiver
