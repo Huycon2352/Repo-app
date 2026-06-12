@@ -1,0 +1,155 @@
+name: CD - Deploy Dev (GitOps)
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "src/ui/**"
+      - "src/catalog/**"
+      - "src/checkout/**"
+      - "src/cart/**"
+      - "src/orders/**"
+
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ECR_REGISTRY: ${{ vars.AWS_ECR_REGISTRY }}
+  GITOPS_REPO: ${{ vars.GITOPS_REPO }}
+
+jobs:
+  # =============================================================
+  # JOB 1: DETECT CHANGED SERVICES
+  # =============================================================
+  changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Detect changed services
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            ui:
+              - "src/ui/**"
+            catalog:
+              - "src/catalog/**"
+            checkout:
+              - "src/checkout/**"
+            cart:
+              - "src/cart/**"
+            orders:
+              - "src/orders/**"
+
+  # =============================================================
+  # JOB 2: BUILD IMAGE -> PUSH ECR -> UPDATE GITOPS
+  # =============================================================
+  build-and-deploy:
+    needs: changes
+
+    if: ${{ needs.changes.outputs.services != '[]' && needs.changes.outputs.services != '' }}
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        service: ${{ fromJson(needs.changes.outputs.services) }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set runtime variables
+        id: vars
+        run: |
+          echo "path=./src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+          echo "ecr_repo=${{ matrix.service }}" >> $GITHUB_OUTPUT
+
+      # ==========================================================
+      # AWS LOGIN
+      # ==========================================================
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ==========================================================
+      # DOCKER BUILDX
+      # ==========================================================
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.vars.outputs.path }}
+
+          push: true
+
+          tags: |
+            ${{ env.AWS_ECR_REGISTRY }}/${{ steps.vars.outputs.ecr_repo }}:${{ github.sha }}
+            ${{ env.AWS_ECR_REGISTRY }}/${{ steps.vars.outputs.ecr_repo }}:dev-latest
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ==========================================================
+      # INSTALL YQ 
+      # ==========================================================
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+          yq --version
+
+      # ==========================================================
+      # UPDATE GITOPS REPO
+      # ==========================================================
+
+      - name: Update GitOps Manifest
+        run: |
+
+          git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/${{ env.GITOPS_REPO }}.git gitops
+
+          FILE=gitops/k8s/overlays/dev/kustomization.yaml
+
+          echo "Update service: ${{ matrix.service }}"
+          echo "Tag: ${{ github.sha }}"
+
+          yq -i '
+            (.images[] | select(.name == "${{ matrix.service }}")).newTag = "${{ github.sha }}"
+          ' "$FILE"
+
+          git -C gitops config user.name "github-actions[bot]"
+          git -C gitops config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git -C gitops add k8s/overlays/dev/kustomization.yaml
+
+          if git -C gitops diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git -C gitops commit -m "chore(dev): update ${{ matrix.service }} image -> ${{ github.sha }}"
+
+          git -C gitops pull --rebase origin main
+
+          git -C gitops push origin main
