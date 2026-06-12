@@ -51,7 +51,7 @@ jobs:
 
           git clone https://${{ secrets.GITOPS_PAT }}@github.com/${{ env.GITOPS_REPO }}.git gitops
 
-          FILE="gitops/k8s/overlays/dev/kustomization.yaml"
+          FILE="gitops/apps/dev/kustomization.yaml"
 
           # ======================================================
           # PATCH ONLY TARGET SERVICE (NO OVERWRITE OTHERS)
