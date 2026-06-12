@@ -67,7 +67,7 @@ jobs:
       - name: Set runtime variables
         id: vars
         run: |
-          echo "path=./src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+          echo "path=./${{ matrix.service }}" >> $GITHUB_OUTPUT
           echo "ecr_repo=${{ matrix.service }}" >> $GITHUB_OUTPUT
 
       # ==========================================================
