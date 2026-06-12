@@ -1,4 +1,4 @@
-name: CI - Worker Service
+name: CI - Worker Service (.NET)
 
 on:
   pull_request:
@@ -35,24 +35,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ---- 1. TỐI ƯU CACHE CHO MAVEN DEPENDENCIES ----
-      - name: Set up JDK 21 với Cache của Maven
-        uses: actions/setup-java@v4
+      # ---- 1. THIẾT LẬP .NET SDK & TỐI ƯU CACHE NUGET ----
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
         with:
-          java-version: '21'
-          distribution: 'corretto'
-          cache: 'maven'
-          # Chỉ định file pom.xml để tối ưu việc nhận diện cache chính xác cho service cart
-          cache-dependency-path: ${{ env.CONTEXT_PATH }}/pom.xml
+          dotnet-version: '8.0' # Thay đổi version (.NET 6/7/8/9) cho khớp với Worker.csproj của bạn
+          cache: true
+          cache-dependency-path: '${{ env.CONTEXT_PATH }}/Worker.csproj'
 
-      - name: Compile Java Code
+      - name: Restore Dependencies
         run: |
           cd ${{ env.CONTEXT_PATH }}
-          # Sử dụng mvn hệ thống thay cho ./mvnw để loại bỏ rủi ro thiếu file wrapper
-          mvn compile -DskipTests
-          
+          dotnet restore
+
+      # ---- 2. CHẠY UNIT TEST & XUẤT COVERAGE CHO .NET ----
+      - name: Run Unit Tests
+        run: |
+          cd ${{ env.CONTEXT_PATH }}
+          # Lệnh này tự chạy test nếu có project test, xuất file opencover phục vụ cho SonarCloud
+          dotnet test --configuration Release /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+
       # -------------------------------------------------------------
-      # 2. QUÉT MÃ NGUỒN (SAST) VỚI SONARQUBE CLOUD
+      # 3. QUÉT MÃ NGUỒN (SAST) VỚI SONARQUBE CLOUD (CHO C#)
       # -------------------------------------------------------------
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -64,16 +68,17 @@ jobs:
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectBaseDir=${{ env.CONTEXT_PATH }}
-            -Dsonar.sources=src/main/java
-            -Dsonar.java.binaries=target/classes
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/obj/**,**/bin/**
+            -Dsonar.cs.opencover.reportsPaths=**/coverage.opencover.xml
             -X
 
-      # ---- 3. TỐI ƯU CACHE CHO DOCKER LAYERS (BUILDKIT) ----
+      # ---- 4. TỐI ƯU CACHE CHO DOCKER LAYERS (BUILDKIT) ----
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       # -------------------------------------------------------------
-      # 4. BUILD DOCKER IMAGE (CHỈ LƯU LOCAL RUNNER)
+      # 5. BUILD DOCKER IMAGE (CHỈ LƯU LOCAL RUNNER)
       # -------------------------------------------------------------
       - name: Build Docker image
         uses: docker/build-push-action@v6
@@ -86,7 +91,7 @@ jobs:
           cache-to: type=gha,mode=max 
 
       # -------------------------------------------------------------
-      # 5. QUÉT BẢO MẬT DOCKER IMAGE (TRIVY IMAGE)
+      # 6. QUÉT BẢO MẬT DOCKER IMAGE (TRIVY IMAGE)
       # -------------------------------------------------------------
       - name: Run Trivy vulnerability scanner on Image
         uses: aquasecurity/trivy-action@master
