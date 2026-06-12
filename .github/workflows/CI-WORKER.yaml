@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - "worker/**"
+  workflow_dispatch:
 
 concurrency:
   group: worker-${{ github.event.pull_request.number || github.ref }}
