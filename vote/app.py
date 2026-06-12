@@ -49,4 +49,4 @@ def hello():
 
 
 if __name__ == "__main__": # pragma: no cover
-    app.run(host='0.0.0.0', port=80, debug=True, threaded=True)
+    app.run(host='127.0.0.1', port=80, debug=True, threaded=True)
