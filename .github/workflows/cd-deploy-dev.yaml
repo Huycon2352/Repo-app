@@ -119,10 +119,9 @@ jobs:
       # ==========================================================
       # UPDATE GITOPS REPO
       # ==========================================================
-
       - name: Update GitOps Manifest
         run: |
-
+          # 1. Clone repository GitOps về thư mục 'gitops'
           git clone https://${{ secrets.GITOPS_PAT }}@github.com/${{ env.GITOPS_REPO }}.git gitops
 
           FILE=gitops/apps/dev/kustomization.yaml
@@ -130,22 +129,24 @@ jobs:
           echo "Update service: ${{ matrix.service }}"
           echo "Tag: ${{ github.sha }}"
 
+          # 2. Sử dụng toán tử 'contains' hoặc 'endswith' của yq để map chính xác tên service (ví dụ: vote -> huy951/vote-app)
           yq -i '
-            (.images[] | select(.name == "${{ matrix.service }}")).newTag = "${{ github.sha }}"
+            (.images[] | select(.name == "*'${{ matrix.service }}'*")).newTag = "${{ github.sha }}"
           ' "$FILE"
 
+          # 3. Cấu hình Git Bot
           git -C gitops config user.name "github-actions[bot]"
           git -C gitops config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git -C gitops add gitops/apps/dev/kustomization.yaml
+          # 4. SỬA TẠI ĐÂY: Đường dẫn add chính xác (bỏ tiền tố gitops/)
+          git -C gitops add apps/dev/kustomization.yaml
 
+          # 5. Kiểm tra thay đổi và tiến hành Push
           if git -C gitops diff --cached --quiet; then
-            echo "No changes"
+            echo "No changes detected"
             exit 0
           fi
 
           git -C gitops commit -m "chore(dev): update ${{ matrix.service }} image -> ${{ github.sha }}"
-
           git -C gitops pull --rebase origin main
-
           git -C gitops push origin main
