@@ -14,7 +14,7 @@ on:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ECR_REGISTRY: ${{ vars.AWS_ECR_REGISTRY }}
-  GITOPS_REPO: ${{ vars.GITOPS_REPO }}
+  GITOPS_REPO: ${{ vars.REPO_APP_OP }}
 
 jobs:
   # =============================================================
@@ -76,8 +76,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login Amazon ECR
@@ -122,7 +122,7 @@ jobs:
       - name: Update GitOps Manifest
         run: |
 
-          git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/${{ env.GITOPS_REPO }}.git gitops
+          git clone https://${{ secrets.GITOPS_PAT }}@github.com/${{ env.GITOPS_REPO }}.git gitops
 
           FILE=gitops/apps/dev/kustomization.yaml
 
