@@ -5,11 +5,9 @@ on:
     branches:
       - dev
     paths:
-      - "src/ui/**"
-      - "src/catalog/**"
-      - "src/checkout/**"
-      - "src/cart/**"
-      - "src/orders/**"
+      - "vote/**"
+      - "work/**"
+      - "result/**"
 
   workflow_dispatch:
 
@@ -37,16 +35,13 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            ui:
-              - "src/ui/**"
-            catalog:
-              - "src/catalog/**"
-            checkout:
-              - "src/checkout/**"
-            cart:
-              - "src/cart/**"
-            orders:
-              - "src/orders/**"
+            vote:
+              - "vote/**"
+            work:
+              - "work/**"
+            result:
+              - "result/**"
+
 
   # =============================================================
   # JOB 2: BUILD IMAGE -> PUSH ECR -> UPDATE GITOPS
@@ -129,7 +124,7 @@ jobs:
 
           git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/${{ env.GITOPS_REPO }}.git gitops
 
-          FILE=gitops/k8s/overlays/dev/kustomization.yaml
+          FILE=gitops/apps/dev/kustomization.yaml
 
           echo "Update service: ${{ matrix.service }}"
           echo "Tag: ${{ github.sha }}"
@@ -141,7 +136,7 @@ jobs:
           git -C gitops config user.name "github-actions[bot]"
           git -C gitops config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git -C gitops add k8s/overlays/dev/kustomization.yaml
+          git -C gitops add gitops/apps/dev/kustomization.yaml
 
           if git -C gitops diff --cached --quiet; then
             echo "No changes"
