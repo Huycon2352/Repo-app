@@ -8,6 +8,7 @@ on:
     paths:
       - "vote/**"
   workflow_dispatch:
+  
 
 concurrency:
   group: vote-${{ github.event.pull_request.number || github.ref }}
