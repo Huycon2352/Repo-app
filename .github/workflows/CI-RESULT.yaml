@@ -1,5 +1,6 @@
 name: CI - Result Service (Node.js)
 
+
 on:
   pull_request:
     branches:
