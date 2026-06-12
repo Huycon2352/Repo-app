@@ -1,6 +1,5 @@
 name: CI - Result Service (Node.js)
 
-
 on:
   pull_request:
     branches:
@@ -40,11 +39,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Thay đổi version Node.js phù hợp với dự án của bạn
+          node-version: '18'
           cache: 'npm'
           cache-dependency-path: 'result/package-lock.json'
 
-       Silber # Lệnh cài dependencies tốc độ cao và chính xác theo lockfile
       - name: Install Dependencies
         run: |
           cd ${{ env.CONTEXT_PATH }}
@@ -54,7 +52,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd ${{ env.CONTEXT_PATH }}
-          # Chạy test và tự động xuất dữ liệu coverage (Cần đảm bảo file package.json có script test hỗ trợ xuất coverage)
+          # Chạy test và tự động xuất dữ liệu coverage (Đảm bảo package.json đã cấu hình script test)
           npm test -- --coverage --watchAll=false || echo "No tests specified"
 
       # -------------------------------------------------------------
