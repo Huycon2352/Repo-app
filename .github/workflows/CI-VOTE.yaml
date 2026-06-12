@@ -1,0 +1,95 @@
+name: CI - Vote Service (Python)
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+    paths:
+      - "vote/**"
+  workflow_dispatch:
+
+concurrency:
+  group: vote-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  AWS_REGION: ap-southeast-1
+  ENVIRONMENT: dev
+  CONTEXT_PATH: ./vote
+  IMAGE_NAME: vote
+  SONAR_PROJECT_KEY: vote-service
+  SONAR_ORGANIZATION: huycon2352code
+
+jobs:
+  build-secure-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ---- 1. THIẾT LẬP PYTHON & TỐI ƯU CACHE PIP ----
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Thay đổi version Python phù hợp với dự án của bạn
+          cache: 'pip'
+          cache-dependency-path: ${{ env.CONTEXT_PATH }}/requirements.txt
+
+      - name: Install Dependencies
+        run: |
+          cd ${{ env.CONTEXT_PATH }}
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # -------------------------------------------------------------
+      # 2. QUÉT MÃ NGUỒN (SAST) VỚI SONARQUBE CLOUD (CHO PYTHON)
+      # -------------------------------------------------------------
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectBaseDir=${{ env.CONTEXT_PATH }}
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/tests/**,**/venv/**
+            -X
+
+      # ---- 3. TỐI ƯU CACHE CHO DOCKER LAYERS (BUILDKIT) ----
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -------------------------------------------------------------
+      # 4. BUILD DOCKER IMAGE (CHỈ LƯU LOCAL RUNNER)
+      # -------------------------------------------------------------
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT_PATH }}
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          push: false 
+          load: true  
+          cache-from: type=gha 
+          cache-to: type=gha,mode=max 
+
+      # -------------------------------------------------------------
+      # 5. QUÉT BẢO MẬT DOCKER IMAGE (TRIVY IMAGE)
+      # -------------------------------------------------------------
+      - name: Run Trivy vulnerability scanner on Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
