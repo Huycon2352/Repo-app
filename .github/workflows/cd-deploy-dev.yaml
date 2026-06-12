@@ -7,7 +7,7 @@ on:
       - dev
     paths:
       - "vote/**"
-      - "work/**"
+      - "worker/**"
       - "result/**"
 
   workflow_dispatch:
@@ -38,8 +38,8 @@ jobs:
           filters: |
             vote:
               - "vote/**"
-            work:
-              - "work/**"
+            worker:
+              - "worker/**"
             result:
               - "result/**"
 
