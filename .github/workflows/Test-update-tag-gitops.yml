@@ -1,0 +1,82 @@
+name: Test GitOps Update Only (No Build)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: 'Tên service muốn test'
+        required: true
+        default: 'orders'
+        type: choice
+        options:
+          - vote
+          - worker
+          - result
+
+
+      test_tag:
+        description: 'Image Tag giả lập'
+        required: true
+        default: 'test-tag-123'
+
+env:
+  AWS_ECR_REGISTRY: ${{ vars.AWS_ECR_REGISTRY }}
+  GITOPS_REPO: ${{ vars.GITOPS_REPO }}
+
+jobs:
+  test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==========================================================
+      # INSTALL YQ + KUSTOMIZE
+      # ==========================================================
+      - name: Install tools
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+          curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+          sudo mv kustomize /usr/local/bin/
+
+      # ==========================================================
+      # UPDATE GITOPS REPO (SAFE PATCH WITH YQ)
+      # ==========================================================
+      - name: Update GitOps Manifest
+        run: |
+          SERVICE_NAME="${{ inputs.service_name }}"
+          MOCK_TAG="${{ inputs.test_tag }}"
+
+          echo "Updating service: $SERVICE_NAME -> $MOCK_TAG"
+
+          git clone https://${{ secrets.GITOPS_TOKEN }}@github.com/${{ env.GITOPS_REPO }}.git gitops
+
+          FILE="gitops/k8s/overlays/dev/kustomization.yaml"
+
+          # ======================================================
+          # PATCH ONLY TARGET SERVICE (NO OVERWRITE OTHERS)
+          # ======================================================
+
+          yq -i '
+            (.images[] | select(.name=="'"$SERVICE_NAME"'").newTag) = "'"$MOCK_TAG"'"
+          ' $FILE
+
+          # ======================================================
+          # GIT COMMIT
+          # ======================================================
+          cd gitops
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add k8s/overlays/dev/kustomization.yaml
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git commit -m "test update $SERVICE_NAME -> $MOCK_TAG"
+
+          git pull --rebase origin main
+          git push origin main
