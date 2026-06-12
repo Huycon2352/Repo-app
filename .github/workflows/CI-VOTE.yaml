@@ -8,8 +8,6 @@ on:
     paths:
       - "vote/**"
   workflow_dispatch:
-  
-
 concurrency:
   group: vote-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -36,22 +34,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ---- 1. THIẾT LẬP PYTHON & TỐI ƯU CACHE PIP ----
+      # ---- 1. THIẾT LẬP PYTHON & TỐI ƯU CACHE ----
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Thay đổi version Python phù hợp với dự án của bạn
+          python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: ${{ env.CONTEXT_PATH }}/requirements.txt
+          cache-dependency-path: 'vote/requirements.in'
 
       - name: Install Dependencies
         run: |
           cd ${{ env.CONTEXT_PATH }}
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Cài đặt các thư viện trong dự án của bạn
+          if [ -f requirements.in ]; then pip install -r requirements.in; fi
+          # Đảm bảo có pytest để chạy test và pytest-cov để xuất báo cáo coverage cho SonarCloud
+          pip install pytest pytest-cov
+
+      # ---- 2. CHẠY UNIT TEST & XUẤT BÁO CÁO COVERAGE ----
+      - name: Run Unit Tests
+        run: |
+          cd ${{ env.CONTEXT_PATH }}
+          # Chạy test và tạo file coverage.xml để SonarCloud đọc độ phủ của code
+          pytest --cov=. --cov-report=xml:coverage.xml
 
       # -------------------------------------------------------------
-      # 2. QUÉT MÃ NGUỒN (SAST) VỚI SONARQUBE CLOUD (CHO PYTHON)
+      # 3. QUÉT MÃ NGUỒN (SAST) VỚI SONARQUBE CLOUD
       # -------------------------------------------------------------
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
@@ -64,15 +72,16 @@ jobs:
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
             -Dsonar.projectBaseDir=${{ env.CONTEXT_PATH }}
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/tests/**,**/venv/**
+            -Dsonar.exclusions=**/tests/**
+            -Dsonar.python.coverage.reportPaths=coverage.xml
             -X
 
-      # ---- 3. TỐI ƯU CACHE CHO DOCKER LAYERS (BUILDKIT) ----
+      # ---- 4. TỐI ƯU CACHE CHO DOCKER LAYERS (BUILDKIT) ----
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       # -------------------------------------------------------------
-      # 4. BUILD DOCKER IMAGE (CHỈ LƯU LOCAL RUNNER)
+      # 5. BUILD DOCKER IMAGE (CHỈ LƯU LOCAL RUNNER)
       # -------------------------------------------------------------
       - name: Build Docker image
         uses: docker/build-push-action@v6
@@ -85,7 +94,7 @@ jobs:
           cache-to: type=gha,mode=max 
 
       # -------------------------------------------------------------
-      # 5. QUÉT BẢO MẬT DOCKER IMAGE (TRIVY IMAGE)
+      # 6. QUÉT BẢO MẬT DOCKER IMAGE (TRIVY IMAGE)
       # -------------------------------------------------------------
       - name: Run Trivy vulnerability scanner on Image
         uses: aquasecurity/trivy-action@master
